@@ -10,16 +10,33 @@ import time
 
 def rotate_image(image, angle):
   image_center = tuple(np.array(image.shape[1::-1]) / 2)
+  
   rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-  result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+  
+  result = cv2.warpAffine(image, rot_mat, 
+                          image.shape[1::-1], 
+                          flags=cv2.INTER_LINEAR)
+  
   return result
 
-## One Possibility is to use the bounding box by the haar trainer
-## as difference between cells. This is size variant, and allows 
-## to already approximate the size of cells
+def draw_shapes_on(img,dots,form):
+    dimg = deepcopy(img)
+    if form == 'r':
+        # draw rectangles
+        for (x,y,w,h) in dots:
+            dimg = cv2.rectangle(dimg,(x,y),(x+w,y+h),
+                                (255,0,0),2)
+    if form == 'o':
+        # draw rectangles
+        for (x,y,w,h) in dots:
+            dimg = cv2.circle(dimg, center=(x+(w//2),y+(h//2)),
+                              radius =1, thickness=2, color=1)
+    return dimg;
+
+
+
 
 start_time = time.time()
-
 
 ## LOAD HAAR CASCAD
 HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
@@ -27,26 +44,21 @@ SOURCE_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/'
 GRID_BORDR = [0,0,0,0];
 
 
-
-# LOAD DATA
+# LOAD IMAG DATA
 os.chdir(SOURCE_DIR);
-img = cv2.imread('number1.jpg',0)
-#img = cv2.imread('number2.jpg',0)
+img = cv2.imread('number2.jpg',0)
 dimg = deepcopy(img)
+# Load Haar Cascade
 haar_cascade = cv2.CascadeClassifier(HAAR_FIL)
+# Load things dependant on image
+binary_grid = np.zeros((img.shape))
 x_px, y_px = img.shape;
 
-# DTCT TH DOTS, USING HAAR CLASSIFIR
+
+# detect the dots, USING HAAR CLASSIFIR
 dots = haar_cascade.detectMultiScale(dimg, 1.3, 5)
 
-binary_grid = np.zeros((img.shape))
-# draw rectangles
-for (x,y,w,h) in dots:
-    dimg = cv2.rectangle(dimg,(x,y),(x+w,y+h),(255,0,0),2)
-    binary_grid = cv2.circle(binary_grid, center=(x+(w//2),y+(h//2)), radius =1, thickness=2, color=1)
 
-plt.imshow(binary_grid);
-plt.show()
 
 # GT BOUNDING BOX OF RCTANGLS
 bb = np.mean(dots, axis=0)[2:].astype('int')
@@ -70,11 +82,6 @@ for label in np.unique(ms.labels_):
     y = int(np.round(np.median(y_unique[ms.labels_==label])));
     cv2.line(dimg, (0, y), (y_px, y),  255, 1)
 
-#plt.imshow(dimg);
-#plt.show()
-
-
-
 
 
 
@@ -94,6 +101,9 @@ rot_imgd = deepcopy(rot_img)
 
 # Get Dots from rotated image
 dotsr = haar_cascade.detectMultiScale(rot_img, 1.3, 5)
+
+# Fill Binary image
+binary_grid = draw_shapes_on(rot_img,dotsr,'o')
 
 
 
@@ -172,11 +182,6 @@ for label in np.unique(grid_rows[:,1]):
     for row in rows:
         cv2.line(rot_imgd, (0, row), (y_px, row),  a, 1)
         #grid_rows.append(line)
-
-##plt.imshow(rot_imgd,cmap='gray');
-#plt.show()
-
-
 
 
 
