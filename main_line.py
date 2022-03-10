@@ -284,6 +284,29 @@ pos_grid = grid_grid[grid_grid[:,4] == 1];
 n_six = int(grid_grid[grid_grid[:,5] == 1, 5].shape[0] / 6);
 grid_grid[grid_grid[:,5] == 1, 5] = np.repeat(np.arange(1,n_six+1), 6)
 
+colors = np.random.randint(0,255, size=(n_six,3));
+
+rot_imgd = deepcopy(rot_img)
+rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
+
+for val in range(1,n_six+1):
+    boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
+    boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
+    boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
+    boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
+    for square in grid_grid[grid_grid[:,5] == val]:
+        rot_imgd[square[0]:square[2],square[1]:square[3]] = boxy;
+
+img1 = deepcopy(rot_img)
+img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2RGB)
+result = cv2.addWeighted(img1, 0.5, rot_imgd, 0.5, 0)
+plt.imshow(result);
+plt.show()
+
+
+
+
+
 
 
 
@@ -292,7 +315,7 @@ grid_grid[grid_grid[:,5] == 1, 5] = np.repeat(np.arange(1,n_six+1), 6)
 
 rot_imgd = deepcopy(rot_img)
 rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
-for square in pos_grid:
+for square in six_grid:
     boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
     boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
     boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
