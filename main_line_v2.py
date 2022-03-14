@@ -1,4 +1,5 @@
 from copy import deepcopy
+from re import L
 from xml.etree import cElementTree
 import cv2, os, random
 import matplotlib.pyplot as plt
@@ -289,33 +290,10 @@ colors = np.random.randint(0,255, size=(n_six,3));
 rot_imgd = deepcopy(rot_img)
 rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
 
-for val in range(1,n_six+1):
-    boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
-    boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
-    boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
-    boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
-    for square in grid_grid[grid_grid[:,5] == val]:
-        rot_imgd[square[0]:square[2],square[1]:square[3]] = boxy;
-
-img1 = deepcopy(rot_img)
-img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2RGB)
-result = cv2.addWeighted(img1, 0.5, rot_imgd, 0.5, 0)
-plt.imshow(result);
-plt.show()
-
-
-
-
-
-
-
-
-
-
 
 rot_imgd = deepcopy(rot_img)
 rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
-for square in six_grid:
+for square in grid_grid[grid_grid[:,4] == 1]:
     boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
     boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
     boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
@@ -340,5 +318,199 @@ plt.show()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def getLBPimage(gray_image):
+    '''
+    == Input ==
+    gray_image  : color image of shape (height, width)
+    
+    == Output ==  
+    imgLBP : LBP converted image of the same shape as 
+    '''
+    
+    ### Step 0: Step 0: Convert an image to grayscale
+    imgLBP = np.zeros_like(gray_image)
+    neighboor = 3 
+    for ih in range(0,gray_image.shape[0] - neighboor):
+        for iw in range(0,gray_image.shape[1] - neighboor):
+            ### Step 1: 3 by 3 pixel
+            img          = gray_image[ih:ih+neighboor,iw:iw+neighboor]
+            center       = img[1,1]
+            img01        = (img >= center)*1.0
+            img01_vector = img01.T.flatten()
+            # it is ok to order counterclock manner
+            # img01_vector = img01.flatten()
+            ### Step 2: **Binary operation**:
+            img01_vector = np.delete(img01_vector,4)
+            ### Step 3: Decimal: Convert the binary operated values to a digit.
+            where_img01_vector = np.where(img01_vector)[0]
+            if len(where_img01_vector) >= 1:
+                num = np.sum(2**where_img01_vector)
+            else:
+                num = 0
+            imgLBP[ih+1,iw+1] = num
+    return(imgLBP)
+
+
+
+
+
+## CHCK GRID ROWS ; THIS SHOULD B UP HIGHR !!! IN TH ND !!! ###
+from skimage.feature import hog
+
+from joblib import dump, load
+clf = load( 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/_GITHUB/HOBraille/svm_dots') 
+
+
+grid_rows
+
+ugr, cgr = np.unique(grid_rows[:,1],return_counts=True)
+rowgroups = ugr[cgr<4];
+#indices = np.where(np.in1d(grid_rows[:,1], ugr[cgr<4]))[0]
+
+
+dimg = deepcopy(rot_img)
+dir = 'C:/Users/SebastianG/Desktop/look/'
+count = 0;
+for rowg in rowgroups:
+    rows   = grid_rows[grid_rows[:,1] == rowg]
+    nrows  =  rows.shape[0]
+    toprow = rows[0]
+    botrow = rows[rows.shape[0 ]-1]
+    nloop = 4 - nrows
+    
+    if nrows == 3:
+        line1 = toprow[0]-row_height;
+        line2 = botrow[0]+row_height;
+        #linecount = 0;
+        for col in grid_cols[:,0]:
+            img = rot_img[ botrow[0]:(botrow[0]+24),col:(col+22)]
+            
+            fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8),cells_per_block=(2, 2), visualize=True)
+            lbpi = getLBPimage(img)
+            arr = np.append(fd,lbpi.flatten())
+            print(clf.predict(arr.reshape(1,-1)))
+            # dimg = cv2.rectangle(dimg,(col,toprow[0]),(col+24,toprow[0]+22),(255,0,0),2)
+            linecount += clf.predict(arr.reshape(1,-1))
+            cv2.imwrite(dir+str(count)+'.jpg',img)
+            count += 1;
+
+plt.imshow(dimg);
+plt.show()
+
+
+
+
+
+
+
+
+
+
+def svm_row_check(img, grid_cols, row):
+    linecount = 0;
+    for col in grid_cols[:,0]:
+        img = rot_img[ row:(row+24),col:(col+22)]
+        fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8),cells_per_block=(2, 2), visualize=True)
+        lbpi = getLBPimage(img)
+        arr = np.append(fd,lbpi.flatten())
+        
+        linecount += clf.predict(arr.reshape(1,-1))
+    return linecount
+
+
+
+dimg = deepcopy(rot_img)
+
+for rowg in rowgroups:
+    rows   = grid_rows[grid_rows[:,1] == rowg]
+    toprow = rows[0]
+    botrow = rows[rows.shape[0 ]-1]
+    nrows  =  rows.shape[0]
+    potrow = [];
+    linec  = [];
+    
+    for row in rows[:,0]:
+        cv2.line(dimg, (0, row), (x_px, row), 0, thickness=1)
+        
+    if nrows == 3:
+        potrow.append(toprow[0]-row_height);
+        potrow.append(botrow[0]);
+        linec.append(int(svm_row_check(img, grid_cols, potrow[0])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[1])))
+        if linec[0] > 0:
+            cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+        if linec[1] > 0:
+            cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+    if nrows == 2:
+        potrow.append(toprow[0]-row_height+2)
+        potrow.append(botrow[0])
+        potrow.append(toprow[0]-(row_height*2)+2)
+        potrow.append(botrow[0]+row_height)
+
+        linec.append(int(svm_row_check(img, grid_cols, potrow[0])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[1])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[2])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[3])))
+
+        if linec[0] > 0:
+            cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+        if linec[1] > 0:
+            cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+        if linec[2] > 0:
+            cv2.line(dimg, (0, potrow[2]+1), (x_px, potrow[2]+1), 128, thickness=1)
+        if linec[3] > 0:
+            cv2.line(dimg, (0, potrow[3]+row_height*2), (x_px, potrow[3]+row_height*2), 128, thickness=1)
+
+
+plt.imshow(dimg);
+plt.show()
 
 
