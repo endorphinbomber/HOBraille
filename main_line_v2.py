@@ -402,57 +402,6 @@ def getLBPimage(gray_image):
 
 
 
-## CHCK GRID ROWS ; THIS SHOULD B UP HIGHR !!! IN TH ND !!! ###
-from skimage.feature import hog
-
-from joblib import dump, load
-clf = load( 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/_GITHUB/HOBraille/svm_dots') 
-
-
-grid_rows
-
-ugr, cgr = np.unique(grid_rows[:,1],return_counts=True)
-rowgroups = ugr[cgr<4];
-#indices = np.where(np.in1d(grid_rows[:,1], ugr[cgr<4]))[0]
-
-
-dimg = deepcopy(rot_img)
-dir = 'C:/Users/SebastianG/Desktop/look/'
-count = 0;
-for rowg in rowgroups:
-    rows   = grid_rows[grid_rows[:,1] == rowg]
-    nrows  =  rows.shape[0]
-    toprow = rows[0]
-    botrow = rows[rows.shape[0 ]-1]
-    nloop = 4 - nrows
-    
-    if nrows == 3:
-        line1 = toprow[0]-row_height;
-        line2 = botrow[0]+row_height;
-        #linecount = 0;
-        for col in grid_cols[:,0]:
-            img = rot_img[ botrow[0]:(botrow[0]+24),col:(col+22)]
-            
-            fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8),cells_per_block=(2, 2), visualize=True)
-            lbpi = getLBPimage(img)
-            arr = np.append(fd,lbpi.flatten())
-            print(clf.predict(arr.reshape(1,-1)))
-            # dimg = cv2.rectangle(dimg,(col,toprow[0]),(col+24,toprow[0]+22),(255,0,0),2)
-            linecount += clf.predict(arr.reshape(1,-1))
-            cv2.imwrite(dir+str(count)+'.jpg',img)
-            count += 1;
-
-plt.imshow(dimg);
-plt.show()
-
-
-
-
-
-
-
-
-
 
 def svm_row_check(img, grid_cols, row):
     linecount = 0;
