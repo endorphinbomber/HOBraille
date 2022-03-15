@@ -1,4 +1,5 @@
 from copy import deepcopy
+from pyexpat.model import XML_CTYPE_MIXED
 from re import L
 from xml.etree import cElementTree
 import cv2, os, random
@@ -36,6 +37,7 @@ start_time = time.time()
 
 ## Define DATA
 HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
+#HAAR_FIL = 'C:/Users/SebastianG/Desktop/TRAIN_ULTI_LESS/cascades/cascade.xml'
 SOURCE_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/'
 GRID_BORDR = [0,0,0,0];     # Area where candidates can be found
 Y_TOL = 5   # Search tolerance (+/-) in y direction, px values.
@@ -44,7 +46,7 @@ X_TOL = 5   # Search tolerance (+/-) in x direction, px values.
 
 # Load DATA
 os.chdir(SOURCE_DIR);
-img = cv2.imread('number2.jpg',0)
+img = cv2.imread('number5.jpg',0)
 dimg = deepcopy(img)
 haar_cascade = cv2.CascadeClassifier(HAAR_FIL)
 binary_grid = np.zeros((img.shape))
@@ -315,6 +317,11 @@ plt.show()
 
 
 
+dimg = deepcopy(rot_img);
+dimg = draw_grid_lines(dimg, grid_rows[:,0], y_px, 'r')
+dimg = draw_grid_lines(dimg, grid_cols[:,0], x_px, 'c')
+plt.imshow(dimg);
+plt.show()
 
 
 
@@ -343,27 +350,15 @@ plt.show()
 
 
 
+## CHCK GRID ROWS ; THIS SHOULD B UP HIGHR !!! IN TH ND !!! ###
+## TODO : CHCK IF THR AR OVRLAPS IN TH NW LIN;
+## A NW LIN SHOULD NOT HAV A HIGHR VALU THAN TH NXT LIN
+## (THR SHOULD NOT B A LIN WITH A HIGHR NUBMR BUT LOWR PX VAL)
 
+from skimage.feature import hog
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+from joblib import dump, load
+clf = load( 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/_GITHUB/HOBraille/svm_dots') 
 
 
 def getLBPimage(gray_image):
@@ -399,10 +394,6 @@ def getLBPimage(gray_image):
     return(imgLBP)
 
 
-
-
-
-
 def svm_row_check(img, grid_cols, row):
     linecount = 0;
     for col in grid_cols[:,0]:
@@ -416,6 +407,10 @@ def svm_row_check(img, grid_cols, row):
 
 
 
+ugr, cgr = np.unique(grid_rows[:,1],return_counts=True)
+rowgroups = ugr[cgr<4];
+
+
 dimg = deepcopy(rot_img)
 
 for rowg in rowgroups:
@@ -427,8 +422,7 @@ for rowg in rowgroups:
     linec  = [];
     
     for row in rows[:,0]:
-        cv2.line(dimg, (0, row), (x_px, row), 0, thickness=1)
-        
+        cv2.line(dimg, (0, row), (x_px, row), 0, thickness=1)        
     if nrows == 3:
         potrow.append(toprow[0]-row_height);
         potrow.append(botrow[0]);
@@ -436,8 +430,10 @@ for rowg in rowgroups:
         linec.append(int(svm_row_check(img, grid_cols, potrow[1])))
         if linec[0] > 0:
             cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[0],rowg]))
         if linec[1] > 0:
             cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[1],rowg]))
     if nrows == 2:
         potrow.append(toprow[0]-row_height+2)
         potrow.append(botrow[0])
@@ -451,12 +447,16 @@ for rowg in rowgroups:
 
         if linec[0] > 0:
             cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[0],rowg]))
         if linec[1] > 0:
             cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[1],rowg]))
         if linec[2] > 0:
-            cv2.line(dimg, (0, potrow[2]+1), (x_px, potrow[2]+1), 128, thickness=1)
+            cv2.line(dimg, (0, potrow[2]+1), (x_px, potrow[2]-row_height+1), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[2],rowg]))
         if linec[3] > 0:
             cv2.line(dimg, (0, potrow[3]+row_height*2), (x_px, potrow[3]+row_height*2), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[3],rowg]))
 
 
 plt.imshow(dimg);
