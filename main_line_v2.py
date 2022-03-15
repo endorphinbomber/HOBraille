@@ -18,6 +18,7 @@ def rotate_image(image, angle):
                           flags=cv2.INTER_LINEAR)
   return result
 
+
 def draw_shapes_on(img,dots,form):
     dimg = deepcopy(img)
     if form == 'r':
@@ -31,13 +32,33 @@ def draw_shapes_on(img,dots,form):
     return dimg;
 
 
+def draw_grid_lines(img, pxvals, endval, indictator):
+    if indictator == 'r':
+        for value in pxvals:
+            cv2.line(img, (0, value), (endval, value), 128, thickness=1)
+    if indictator == 'c':
+        for value in pxvals:
+            cv2.line(img, (value, 0), (value, endval), 128, thickness=1)
+    return img;
+
+
+def draw_grid(img, grid):
+    for square in grid:
+        boxy = np.ones(img[square[0]:square[2],square[1]:square[3]].shape)
+        boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
+        boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
+        boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
+        img[square[0]:square[2],square[1]:square[3]] = boxy;
+    return img;
+
+
 
 
 start_time = time.time()
 
 ## Define DATA
-HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
-#HAAR_FIL = 'C:/Users/SebastianG/Desktop/TRAIN_ULTI_LESS/cascades/cascade.xml'
+#HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
+HAAR_FIL = 'C:/Users/SebastianG/Desktop/TRAIN_ULTI_LESS/cascades/cascade.xml'
 SOURCE_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/'
 GRID_BORDR = [0,0,0,0];     # Area where candidates can be found
 Y_TOL = 5   # Search tolerance (+/-) in y direction, px values.
@@ -85,22 +106,11 @@ rot_imgd = deepcopy(rot_img)
 # Get Dots from rotated image
 dotsr = haar_cascade.detectMultiScale(rot_img, 1.3, 5)
 
-# Fill Binary image
-#binary_grid = draw_shapes_on(rot_img,dotsr,'o')
-
-
-
-
 # calculate the clustering once more, look for clusters.
 y_unique, y_counts = np.unique(dotsr[:,1], return_counts=True);
 X = np.reshape(y_unique, (-1, 1))
 ms = MeanShift(bandwidth=Y_TOL, bin_seeding=True)
 ms.fit(X)
-
-#for label in np.unique(ms.labels_):
-#    print(y_unique[ms.labels_==label])
-#    y = int(np.round(np.median(y_unique[ms.labels_==label])));
-#    cv2.line(rot_imgd, (0, y), (y_px, y),  255, 1)
 
 
 # get center of the rows
@@ -146,7 +156,6 @@ for ulabel in np.unique(labels):
         cur_label += 1;
 
 grid_rows = np.array(grid_rows);
-
 
 
 rot_imgd = deepcopy(rot_img)
@@ -195,7 +204,7 @@ for i in range(0,len(x_diff)-1):
         cur_label = cur_label+1;
         labels[i+1] = cur_label;
         cur_label = cur_label+1;
-        
+
 
 grid_cols = [];
 cur_label = 1;
@@ -214,14 +223,12 @@ for ulabel in np.unique(labels):
 grid_cols = np.array(grid_cols);
 
 
-
 rot_imgd = deepcopy(rot_img)
 for label in np.unique(grid_cols[:,1]):
     columns = grid_cols[grid_cols[:,1]==label][:,0]
     a = random.randint(0,255);
     for column in columns:
         cv2.line(rot_imgd, (column, 0), (column, x_px),  a, 1)
-
 
 
 GRID_BORDR[0] = dotsr[:,0].min();
@@ -250,7 +257,6 @@ for label in np.unique(grid_rows[:,1]):
 
 
 
-
 binary_grid = np.zeros((img.shape))
 for dot in dotsr:
     yc = dot[1] + (dot[3] // 2 )
@@ -260,7 +266,6 @@ for dot in dotsr:
 
 plt.imshow(binary_grid);
 plt.show()
-
 
 
 ## extract grid structure, pretty greedy
@@ -289,21 +294,15 @@ grid_grid[grid_grid[:,5] == 1, 5] = np.repeat(np.arange(1,n_six+1), 6)
 
 colors = np.random.randint(0,255, size=(n_six,3));
 
-rot_imgd = deepcopy(rot_img)
-rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
 
 
 rot_imgd = deepcopy(rot_img)
 rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
-for square in grid_grid[grid_grid[:,4] == 1]:
-    boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
-    boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
-    boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
-    boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
-    rot_imgd[square[0]:square[2],square[1]:square[3]] = boxy;
+rot_imgd = draw_grid(rot_imgd, grid_grid[grid_grid[:,4] == 1])
 
 img1 = deepcopy(rot_img)
 img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2RGB)
+
 result = cv2.addWeighted(img1, 0.5, rot_imgd, 0.5, 0)
 plt.imshow(result);
 plt.show()
@@ -315,13 +314,11 @@ plt.show()
 
 
 
-
-
-dimg = deepcopy(rot_img);
-dimg = draw_grid_lines(dimg, grid_rows[:,0], y_px, 'r')
-dimg = draw_grid_lines(dimg, grid_cols[:,0], x_px, 'c')
-plt.imshow(dimg);
-plt.show()
+#dimg = deepcopy(rot_img);
+#dimg = draw_grid_lines(dimg, grid_rows[:,0], y_px, 'r')
+#dimg = draw_grid_lines(dimg, grid_cols[:,0], x_px, 'c')
+#plt.imshow(dimg);
+#plt.show()
 
 
 
@@ -457,9 +454,5 @@ for rowg in rowgroups:
         if linec[3] > 0:
             cv2.line(dimg, (0, potrow[3]+row_height*2), (x_px, potrow[3]+row_height*2), 128, thickness=1)
             grid_rows = np.vstack((grid_rows,[potrow[3],rowg]))
-
-
-plt.imshow(dimg);
-plt.show()
 
 
