@@ -1,12 +1,15 @@
-from copy import deepcopy
-from xml.etree import cElementTree
-import cv2, os, random
+import cv2, os, random, time
+
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.cluster import MeanShift, estimate_bandwidth
+
+from sklearn.cluster import MeanShift
 from scipy.stats import linregress
 from math import atan
-import time
+from skimage.feature import hog
+from joblib import load
+from copy import deepcopy
+
 
 def rotate_image(image, angle):
   image_center = tuple(np.array(image.shape[1::-1]) / 2)
@@ -15,6 +18,19 @@ def rotate_image(image, angle):
                           image.shape[1::-1], 
                           flags=cv2.INTER_LINEAR)
   return result
+
+
+def svm_row_check(img, grid_cols, row):
+    linecount = 0;
+    for col in grid_cols[:,0]:
+        img = rot_img[ row:(row+24),col:(col+22)]
+        fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8),cells_per_block=(2, 2), visualize=True)
+        lbpi = getLBPimage(img)
+        arr = np.append(fd,lbpi.flatten())
+        
+        linecount += clf.predict(arr.reshape(1,-1))
+    return linecount
+
 
 def draw_shapes_on(img,dots,form):
     dimg = deepcopy(img)
@@ -29,12 +45,59 @@ def draw_shapes_on(img,dots,form):
     return dimg;
 
 
+def draw_grid_lines(img, pxvals, endval, indictator):
+    if indictator == 'r':
+        for value in pxvals:
+            cv2.line(img, (0, value), (endval, value), 128, thickness=1)
+    if indictator == 'c':
+        for value in pxvals:
+            cv2.line(img, (value, 0), (value, endval), 128, thickness=1)
+    return img;
+
+
+def draw_grid(img, grid):
+    for square in grid:
+        boxy = np.ones(img[square[0]:square[2],square[1]:square[3]].shape)
+        boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
+        boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
+        boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
+        img[square[0]:square[2],square[1]:square[3]] = boxy;
+    return img;
+
+
+def getLBPimage(gray_image):
+
+    ### Step 0: Step 0: Convert an image to grayscale
+    imgLBP = np.zeros_like(gray_image)
+    neighboor = 3 
+    for ih in range(0,gray_image.shape[0] - neighboor):
+        for iw in range(0,gray_image.shape[1] - neighboor):
+            ### Step 1: 3 by 3 pixel
+            img          = gray_image[ih:ih+neighboor,iw:iw+neighboor]
+            center       = img[1,1]
+            img01        = (img >= center)*1.0
+            img01_vector = img01.T.flatten()
+            # it is ok to order counterclock manner
+            # img01_vector = img01.flatten()
+            ### Step 2: **Binary operation**:
+            img01_vector = np.delete(img01_vector,4)
+            ### Step 3: Decimal: Convert the binary operated values to a digit.
+            where_img01_vector = np.where(img01_vector)[0]
+            if len(where_img01_vector) >= 1:
+                num = np.sum(2**where_img01_vector)
+            else:
+                num = 0
+            imgLBP[ih+1,iw+1] = num
+    return(imgLBP)
+
+
 
 
 start_time = time.time()
 
 ## Define DATA
-HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
+#HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
+HAAR_FIL = 'C:/Users/SebastianG/Desktop/TRAIN_ULTI_LESS/cascades/cascade.xml'
 SOURCE_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/'
 GRID_BORDR = [0,0,0,0];     # Area where candidates can be found
 Y_TOL = 5   # Search tolerance (+/-) in y direction, px values.
@@ -42,8 +105,8 @@ X_TOL = 5   # Search tolerance (+/-) in x direction, px values.
 
 
 # Load DATA
-os.chdir(SOURCE_DIR);
-img = cv2.imread('number2.jpg',0)
+#os.chdir(SOURCE_DIR);
+img = cv2.imread(SOURCE_DIR+'number5.jpg',0)
 dimg = deepcopy(img)
 haar_cascade = cv2.CascadeClassifier(HAAR_FIL)
 binary_grid = np.zeros((img.shape))
@@ -82,22 +145,11 @@ rot_imgd = deepcopy(rot_img)
 # Get Dots from rotated image
 dotsr = haar_cascade.detectMultiScale(rot_img, 1.3, 5)
 
-# Fill Binary image
-#binary_grid = draw_shapes_on(rot_img,dotsr,'o')
-
-
-
-
 # calculate the clustering once more, look for clusters.
 y_unique, y_counts = np.unique(dotsr[:,1], return_counts=True);
 X = np.reshape(y_unique, (-1, 1))
 ms = MeanShift(bandwidth=Y_TOL, bin_seeding=True)
 ms.fit(X)
-
-#for label in np.unique(ms.labels_):
-#    print(y_unique[ms.labels_==label])
-#    y = int(np.round(np.median(y_unique[ms.labels_==label])));
-#    cv2.line(rot_imgd, (0, y), (y_px, y),  255, 1)
 
 
 # get center of the rows
@@ -143,7 +195,6 @@ for ulabel in np.unique(labels):
         cur_label += 1;
 
 grid_rows = np.array(grid_rows);
-
 
 
 rot_imgd = deepcopy(rot_img)
@@ -192,7 +243,7 @@ for i in range(0,len(x_diff)-1):
         cur_label = cur_label+1;
         labels[i+1] = cur_label;
         cur_label = cur_label+1;
-        
+
 
 grid_cols = [];
 cur_label = 1;
@@ -211,14 +262,12 @@ for ulabel in np.unique(labels):
 grid_cols = np.array(grid_cols);
 
 
-
 rot_imgd = deepcopy(rot_img)
 for label in np.unique(grid_cols[:,1]):
     columns = grid_cols[grid_cols[:,1]==label][:,0]
     a = random.randint(0,255);
     for column in columns:
         cv2.line(rot_imgd, (column, 0), (column, x_px),  a, 1)
-
 
 
 GRID_BORDR[0] = dotsr[:,0].min();
@@ -247,7 +296,6 @@ for label in np.unique(grid_rows[:,1]):
 
 
 
-
 binary_grid = np.zeros((img.shape))
 for dot in dotsr:
     yc = dot[1] + (dot[3] // 2 )
@@ -257,7 +305,6 @@ for dot in dotsr:
 
 plt.imshow(binary_grid);
 plt.show()
-
 
 
 ## extract grid structure, pretty greedy
@@ -286,44 +333,15 @@ grid_grid[grid_grid[:,5] == 1, 5] = np.repeat(np.arange(1,n_six+1), 6)
 
 colors = np.random.randint(0,255, size=(n_six,3));
 
-rot_imgd = deepcopy(rot_img)
-rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
-
-for val in range(1,n_six+1):
-    boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
-    boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
-    boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
-    boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
-    for square in grid_grid[grid_grid[:,5] == val]:
-        rot_imgd[square[0]:square[2],square[1]:square[3]] = boxy;
-
-img1 = deepcopy(rot_img)
-img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2RGB)
-result = cv2.addWeighted(img1, 0.5, rot_imgd, 0.5, 0)
-plt.imshow(result);
-plt.show()
-
-
-
-
-
-
-
-
-
 
 
 rot_imgd = deepcopy(rot_img)
 rot_imgd = cv2.cvtColor(rot_imgd,cv2.COLOR_GRAY2RGB)
-for square in six_grid:
-    boxy = np.ones(rot_imgd[square[0]:square[2],square[1]:square[3]].shape)
-    boxy[:,:,0] = boxy[:,:,0] * random.randint(0,255);
-    boxy[:,:,1] = boxy[:,:,1] * random.randint(0,255);
-    boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
-    rot_imgd[square[0]:square[2],square[1]:square[3]] = boxy;
+rot_imgd = draw_grid(rot_imgd, grid_grid[grid_grid[:,4] == 1])
 
 img1 = deepcopy(rot_img)
 img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2RGB)
+
 result = cv2.addWeighted(img1, 0.5, rot_imgd, 0.5, 0)
 plt.imshow(result);
 plt.show()
@@ -340,5 +358,81 @@ plt.show()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## CHCK GRID ROWS ; THIS SHOULD B UP HIGHR !!! IN TH ND !!! ###
+## TODO : CHCK IF THR AR OVRLAPS IN TH NW LIN;
+## A NW LIN SHOULD NOT HAV A HIGHR VALU THAN TH NXT LIN
+## (THR SHOULD NOT B A LIN WITH A HIGHR NUBMR BUT LOWR PX VAL)
+
+clf = load( 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/_GITHUB/HOBraille/svm_dots') 
+
+
+
+
+ugr, cgr = np.unique(grid_rows[:,1],return_counts=True)
+rowgroups = ugr[cgr<4];
+
+
+dimg = deepcopy(rot_img)
+
+for rowg in rowgroups:
+    rows   = grid_rows[grid_rows[:,1] == rowg]
+    toprow = rows[0]
+    botrow = rows[rows.shape[0 ]-1]
+    nrows  =  rows.shape[0]
+    potrow = [];
+    linec  = [];
+    
+    for row in rows[:,0]:
+        cv2.line(dimg, (0, row), (x_px, row), 0, thickness=1)        
+    if nrows == 3:
+        potrow.append(toprow[0]-row_height);
+        potrow.append(botrow[0]);
+        linec.append(int(svm_row_check(img, grid_cols, potrow[0])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[1])))
+        if linec[0] > 0:
+            cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[0],rowg]))
+        if linec[1] > 0:
+            cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[1],rowg]))
+    if nrows == 2:
+        potrow.append(toprow[0]-row_height+2)
+        potrow.append(botrow[0])
+        potrow.append(toprow[0]-(row_height*2)+2)
+        potrow.append(botrow[0]+row_height)
+
+        linec.append(int(svm_row_check(img, grid_cols, potrow[0])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[1])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[2])))
+        linec.append(int(svm_row_check(img, grid_cols, potrow[3])))
+
+        if linec[0] > 0:
+            cv2.line(dimg, (0, potrow[0]), (x_px, potrow[0]), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[0],rowg]))
+        if linec[1] > 0:
+            cv2.line(dimg, (0, potrow[1]+row_height), (x_px, potrow[1]+row_height), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[1],rowg]))
+        if linec[2] > 0:
+            cv2.line(dimg, (0, potrow[2]+1), (x_px, potrow[2]-row_height+1), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[2],rowg]))
+        if linec[3] > 0:
+            cv2.line(dimg, (0, potrow[3]+row_height*2), (x_px, potrow[3]+row_height*2), 128, thickness=1)
+            grid_rows = np.vstack((grid_rows,[potrow[3],rowg]))
 
 

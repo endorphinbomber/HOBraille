@@ -1,11 +1,6 @@
-from copy import deepcopy
-from xml.etree import cElementTree
 import cv2, os, random, string
-import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.cluster import MeanShift, estimate_bandwidth
-from scipy.stats import linregress
-from math import atan
+import shutil
 
 
 DATA_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/data';
@@ -153,6 +148,7 @@ for i,file in enumerate(files):
 ## which in turns makes the haar classifier better centered,
 ## but at the same time less acceptable of variance in the images
 RSULT_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/TRUE/';
+ORIGIN_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/';
 RSULTG_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/pos_cc/';
 
 try:
@@ -162,16 +158,27 @@ except:
 
 os.chdir(RSULT_DIR)
 files = os.listdir('.');
-img_cur = 0;
-
+img_container = np.zeros((width,height,len(files)))
 
 for i,file in enumerate(files):
     cimg = cv2.imread(file,0)
-    cv2.imwrite(RSULTG_DIR+str(img_cur)+'.jpg',cimg)
-    img_cur += 1;
-    
-    
-    
+    img_container[:,:,i] = cimg;
+
+mean_img = np.mean(img_container,axis = 2)
+cv2.imwrite(ORIGIN_DIR+'mean_pos.jpg',mean_img)
+corrlist = [];
+
+for i,file in enumerate(files):
+    cimg = cv2.imread(file,0)
+    corrlist.append(np.corrcoef(cimg.flatten(),mean_img.flatten())[0,1])
+
+# Get ~half of the data, in this case 40.000 points, more than enough
+# Again, if desired to have a wide range of dots, don't do this
+for i,file in enumerate(files):
+    cimg = cv2.imread(file,0)
+    if np.corrcoef(cimg.flatten(),mean_img.flatten())[0,1] > np.mean(corrlist):
+        cv2.imwrite(RSULTG_DIR+file,cimg);
+
     
     
     
@@ -206,3 +213,85 @@ def create_pos_n_neg():
     fneg.close()
  
 create_pos_n_neg()
+
+
+
+
+
+
+
+
+## Prepare and start to train the SVM data
+data_split = 0.8;
+SVM_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/SVM/' 
+POS_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/pos_cc/' 
+NEG_DIR  = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/_GOOD_PIPELINES/CREATE_FINAL/neg/' 
+
+try:
+    os.mkdir(SVM_DIR)
+except:
+    print('folder exists')
+
+
+
+os.chdir(POS_DIR)
+pos_files = os.listdir('.')
+
+os.chdir(NEG_DIR)
+neg_files = os.listdir('.')
+
+split_neg = int(len(neg_files) * data_split)
+split_pos = int(len(pos_files) * data_split)
+
+train_files_pos = pos_files[:split_pos]
+train_files_neg = neg_files[:split_neg]
+test_files_pos  = pos_files[split_pos:]
+test_files_neg  = neg_files[split_neg:]
+
+
+
+
+
+## TRAIN FILS POS
+try:
+    os.mkdir(SVM_DIR+'/train_pos/')
+except:
+    print('folder exists')
+    
+for file in train_files_pos:
+    shutil.copyfile(POS_DIR+file,SVM_DIR+'/train_pos/'+file)
+
+
+
+## TRAIN FILS NG
+try:
+    os.mkdir(SVM_DIR+'/train_neg/')
+except:
+    print('folder exists')
+    
+for file in train_files_neg:
+    shutil.copyfile(NEG_DIR+file,SVM_DIR+'/train_neg/'+file)
+
+
+
+## TST FILS POS
+try:
+    os.mkdir(SVM_DIR+'/test_pos/')
+except:
+    print('folder exists')
+    
+for file in test_files_pos:
+    shutil.copyfile(POS_DIR+file,SVM_DIR+'/test_pos/'+file)
+
+
+## TST FILS NG
+try:
+    os.mkdir(SVM_DIR+'/test_neg/')
+except:
+    print('folder exists')
+    
+for file in test_files_neg:
+    shutil.copyfile(NEG_DIR+file,SVM_DIR+'/test_neg/'+file)
+
+
+

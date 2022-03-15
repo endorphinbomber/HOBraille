@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import os
 
 def rotate_image(image, angle):
   image_center = tuple(np.array(image.shape[1::-1]) / 2)
@@ -45,4 +45,22 @@ def draw_grid(img, grid):
         boxy[:,:,2] = boxy[:,:,2] * random.randint(0,255);
         img[square[0]:square[2],square[1]:square[3]] = boxy;
     return img;
+
+
+
+def cut_off_xpx_bottom(STRT_DIR, ND_DIR, xpx):
+    
+    try:
+        os.mkdir(ND_DIR)
+    except:
+        print('folder exists')
+
+    os.chdir(STRT_DIR)
+    files = os.listdir('.')
+    
+    for file in files:
+        cur_file = STRT_DIR+'/'+file
+        cur_img = cv2.imread(cur_file,0)
+        cv2.imwrite(ND_DIR+file,cur_img[:-xpx,:])
+
 
