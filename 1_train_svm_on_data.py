@@ -119,6 +119,9 @@ clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
 clf.fit(X_train, y_train)
 
 
+from joblib import dump
+dump(clf, SVM_DIR+'svm_dots') 
+
 
 
 
@@ -163,7 +166,7 @@ import time
 start = time.time()
 Y_pred = clf.predict(X_test)
 end = time.time()
-print("Time is :"+str(end - start)+'for '+len(Y_pred)+' samples.')
+print("Time is :"+str(end - start)+'for '+str(len(Y_pred))+' samples.')
 
 
 from joblib import dump
