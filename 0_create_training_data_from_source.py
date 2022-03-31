@@ -176,12 +176,12 @@ for i,file in enumerate(files):
 # Again, if desired to have a wide range of dots, don't do this
 for i,file in enumerate(files):
     cimg = cv2.imread(file,0)
-    if np.corrcoef(cimg.flatten(),mean_img.flatten())[0,1] > np.mean(corrlist):
+    if np.corrcoef(cimg.flatten(),mean_img.flatten())[0,1] > 0.921:
         cv2.imwrite(RSULTG_DIR+file,cimg);
 
     
     
-    
+
 ## Create text files for haar classification
 ## 
 
