@@ -97,7 +97,7 @@ start_time = time.time()
 
 ## Define DATA
 #HAAR_FIL = 'C:/Users/SebastianG/Desktop/Train_full/cascades/cascade.xml'
-HAAR_FIL = 'C:/Users/SebastianG/Desktop/train_final/cascades/cascade.xml'
+HAAR_FIL = 'C:/Users/SebastianG/Desktop/train_ulti_less/cascades/cascade.xml'
 SOURCE_DIR = 'C:/Users/SebastianG/Nextcloud/_SEBASTIAN/Forschung/Braille/'
 GRID_BORDR = [0,0,0,0];     # Area where candidates can be found
 Y_TOL = 5   # Search tolerance (+/-) in y direction, px values.
